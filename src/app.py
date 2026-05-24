@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import time
 import sys
 import os
  
@@ -14,8 +15,7 @@ from skills import extract_skills
 from llm_feedback import get_feedback
 from resume_parser import parse_resume
 from report import generate_report
-from matcher import _load_model
-_load_model()
+
  
 st.set_page_config(
     page_title="RecruitLens · AI Screening",
@@ -25,9 +25,21 @@ st.set_page_config(
 )
  
 # Load external CSS
-with open("src/styles.css") as css_file:
-    st.markdown(f"<style>{css_file.read()}</style>", unsafe_allow_html=True)
+# with open("src/styles.css") as css_file:
+#     st.markdown(f"<style>{css_file.read()}</style>", unsafe_allow_html=True)
  
+# Load CSS only once
+@st.cache_data
+
+def load_css():
+    with open("src/styles.css") as css_file:
+        return css_file.read()
+
+st.markdown(
+    f"<style>{load_css()}</style>",
+    unsafe_allow_html=True
+)
+
 @st.cache_resource
 def load_model_files():
     model = joblib.load("src/model.pkl")
@@ -36,12 +48,28 @@ def load_model_files():
  
 model, vectorizer = load_model_files()
  
-@st.cache_data
+# @st.cache_data
+# def load_dataset(path):
+#     df = pd.read_csv(path)
+#     df = preprocess_dataframe(df)
+#     return df
+
+@st.cache_data(show_spinner="Loading dataset...")
 def load_dataset(path):
-    df = pd.read_csv(path)
+
+    df = pd.read_csv(
+        path,
+        low_memory=False
+    )
+
     df = preprocess_dataframe(df)
+
+    # Reduce memory usage
+    for col in df.select_dtypes(include="object"):
+        df[col] = df[col].astype(str)
+
     return df
- 
+
 # Header
 st.markdown("""
 <div style="padding: 56px 0 40px; border-bottom: 1px solid var(--rule);">
@@ -198,7 +226,9 @@ with tab1:
                 st.warning("Please paste a job description before running.")
             else:
                 with st.spinner("Analysing candidate pool…"):
-                    results = match_resumes(jd, df, top_n)
+                    start_time = time.time()
+                    results = match_resumes(jd,df,top_n)
+                    end_time = time.time()
  
                 st.markdown(f"""
                 <div style="display:grid; grid-template-columns:1fr 1fr;
@@ -231,6 +261,9 @@ with tab1:
                 </div>
                 """, unsafe_allow_html=True)
                 st.plotly_chart(score_bar_chart(results), use_container_width=True)
+                st.success(
+                    f"Analysis completed in {round(end_time - start_time, 2)} seconds"
+                )
  
                 col_t, col_w = st.columns([1, 1], gap="large")
  
@@ -300,6 +333,7 @@ with tab2:
  
     if uploaded_file:
         resume_text = extract_text_from_pdf(uploaded_file)
+        # st.write(resume_text[:3000])
  
         if not resume_text.strip():
             st.error("Could not extract text from this PDF. Ensure it is not scanned/image-only.")
@@ -402,8 +436,16 @@ with tab2:
  
                 cleaned_jd = clean_text(jd_single)
                 jd_vec = vectorizer.transform([cleaned_jd])
-                score = round(cos_sim(resume_vec, jd_vec)[0][0] * 100, 2)
- 
+                jd_skills = extract_skills(cleaned_jd)
+                # Base cosine similarity
+                base_score = cos_sim(resume_vec, jd_vec)[0][0] * 100
+                # Skill overlap bonus
+                matched_count = len(set(skills) & set(jd_skills))
+                skill_bonus = matched_count * 4
+                # Final score
+                score = min(round(base_score + skill_bonus, 2), 95)
+
+
                 st.divider()
                 st.markdown("""
                 <div style="font-family:'IBM Plex Mono',monospace; font-size:0.62rem;
@@ -412,7 +454,7 @@ with tab2:
                 """, unsafe_allow_html=True)
  
                 score_color = "var(--green)" if score >= 60 else ("#F59E0B" if score >= 35 else "#EF4444")
-                score_label = "Strong Match" if score >= 60 else ("Partial Match" if score >= 35 else "Weak Match")
+                score_label = "Strong Match" if score >= 70 else ("Partial Match" if score >= 45 else "Weak Match")
  
                 st.markdown(f"""
                 <div style="background:var(--surface); border:1px solid var(--rule); border-radius:8px;

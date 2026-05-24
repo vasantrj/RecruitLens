@@ -76,4 +76,5 @@ def generate_report(parsed: dict, prediction: str, skills: list,
     pdf.set_text_color(20, 20, 20)
     pdf.multi_cell(0, 7, _clean(feedback if feedback else "Not generated"))
 
-    return bytes(pdf.output())
+    # return bytes(pdf.output())
+    return pdf.output(dest='S').encode('latin1')
