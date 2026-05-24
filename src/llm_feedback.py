@@ -1,83 +1,57 @@
 import os
-import time
+from pathlib import Path
 from dotenv import load_dotenv
+from groq import Groq
 
-load_dotenv()
+# Load .env from project root
+env_path = Path(__file__).resolve().parent.parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
-# Try Gemini first
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+# Load API key
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-gemini_model = None
-groq_client = None
-
-# ---------------- GEMINI SETUP ----------------
-if GEMINI_API_KEY:
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        gemini_model = genai.GenerativeModel("gemini-2.0-flash-lite")
-    except Exception:
-        gemini_model = None
-
-# ---------------- GROQ SETUP ----------------
-if GROQ_API_KEY:
-    try:
-        from groq import Groq
-        groq_client = Groq(api_key=GROQ_API_KEY)
-    except Exception:
-        groq_client = None
-
+# Initialize client
+client = Groq(api_key=GROQ_API_KEY)
 
 def build_prompt(resume_text, jd_text, score):
     return f"""
 You are an expert recruiter.
 
-Match Score: {score}%
+Candidate Match Score: {score}%
 
 JOB DESCRIPTION:
-{jd_text[:1000]}
+{jd_text[:1200]}
 
 RESUME:
-{resume_text[:1000]}
+{resume_text[:1200]}
 
-Give:
-- Why this score
-- Key strengths
-- Key gaps
-- Final recommendation
+Provide:
+1. Why this score
+2. Key strengths
+3. Key weaknesses
+4. Hiring recommendation
 
-Keep it concise (4–6 lines).
+Keep response concise and professional.
 """
-
 
 def get_feedback(resume_text: str, jd_text: str, score: float) -> str:
 
-    prompt = build_prompt(resume_text, jd_text, score)
+    try:
+        prompt = build_prompt(resume_text, jd_text, score)
 
-    # ---------------- TRY GEMINI ----------------
-    # if gemini_model:
-    #     for attempt in range(3):
-    #         try:
-    #             response = gemini_model.generate_content(prompt)
-    #             return response.text
-    #         except Exception as e:
-    #             if "429" in str(e):
-    #                 time.sleep(10)
-    #             else:
-    #                 break
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.3,
+            max_tokens=300
+        )
 
-    # ---------------- FALLBACK TO GROQ ----------------
-    if groq_client:
-        try:
-            response = groq_client.chat.completions.create(
-                model="openai/gpt-oss-120b",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.3,
-            )
-            return response.choices[0].message.content
-        except Exception as e:
-            return f"Groq error: {e}"
+        return response.choices[0].message.content
 
-    # ---------------- FINAL FALLBACK ----------------
-    return "Feedback unavailable: No valid API configured."
+    except Exception as e:
+        return f"Groq error: {str(e)}"
