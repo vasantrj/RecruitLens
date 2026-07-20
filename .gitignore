@@ -1,37 +1,47 @@
-# Python
-__pycache__/
+# ---- Secrets / environment files ----
+.env
+.env.local
+.env.*.local
+apps/api/.env
+apps/web/.env.local
+infra/.env
+
+# ---- Python (apps/api) ----
+apps/api/venv/
+apps/api/__pycache__/
+**/__pycache__/
 *.pyc
 *.pyo
-*.pyd
+*.egg-info/
+.pytest_cache/
 
-# Virtual Environment
-venv/
-env/
-.venv/
-.env
+# ---- Node / Next.js (apps/web) ----
+apps/web/node_modules/
+apps/web/.next/
+apps/web/out/
+apps/web/next-env.d.ts
+apps/web/npm-debug.log*
 
-# Jupyter
-.ipynb_checkpoints/
+# ---- Docker ----
+# (nothing needed by default - images/containers aren't files in the repo)
 
-# Streamlit cache
-.streamlit/
+# ---- Alembic ----
+# Keep migration files (they're part of the project), but ignore any local db files
+*.sqlite3
+*.db
 
-# OS files
+# ---- OS / Editor ----
 .DS_Store
 Thumbs.db
+.vscode/*
+!.vscode/settings.json
+*.swp
 
-# Model / temp files
+# ---- Logs ----
 *.log
+npm-debug.log*
 
-# Large data optional
-data/raw_pdfs/
-
-# Build files
+# ---- Build artifacts ----
+apps/web/.turbo/
 dist/
 build/
-
-# VS Code
-.vscode/
-
-# PyCharm
-.idea/
