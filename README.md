@@ -1,149 +1,144 @@
-# 🔍 RecruitLens
+# RecruitLens
 
-### *AI-powered Resume Screening & Intelligent Job Matching — built for speed, accuracy, and scale.*
+An AI-powered recruiting platform that matches candidates to roles using a multi-stage retrieval and ranking pipeline — not keyword matching. Built end-to-end: structured resume/JD parsing, taxonomy-normalized skill matching, semantic embeddings, cross-encoder reranking, GitHub-verified technical signal, explainable AI recruiter feedback, and real email outreach through a recruiter's own Gmail account.
 
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)
-![AI](https://img.shields.io/badge/AI--Powered-Groq%20%7C%20Llama3-blueviolet?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)
+## Why this exists
 
----
+Most resume-screening demos compute one cosine-similarity number between a resume and a job description and call it a match score. That approach can't explain itself, can't handle synonyms or paraphrasing well, and gives no insight into *why* a candidate scored the way they did.
 
-##  What is RecruitLens?
+RecruitLens instead separates the problem into stages — extract structure, normalize skills against a taxonomy, embed and retrieve semantically, rerank with a cross-encoder, and combine everything into an explainable, weighted score with a full breakdown. An LLM then explains the score in plain language; it never sets the score itself.
 
-RecruitLens is an end-to-end AI recruitment assistant that automates the most time-consuming part of hiring — reading and ranking resumes. It combines **semantic embeddings**, **NLP-based parsing**, and **LLM-driven feedback** to give recruiters a clear, data-backed view of every candidate against a job description.
+## Core features
 
-No more manual shortlisting. No more missed skills. Just ranked candidates with explanations.
+- **Structured resume & JD parsing** — LLM-based extraction (skills, experience, education, titles) instead of raw keyword matching
+- **Skill taxonomy normalization** — "ML", "Machine Learning", and "AI/ML" all resolve to one canonical skill
+- **Two-stage semantic matching** — bi-encoder embeddings for fast comparison, cross-encoder reranking for precision
+- **Role-only matching** — type just a job title (e.g. "Data Science Intern") and get a realistic, LLM-synthesized requirements profile with no JD text required
+- **Explainable AI feedback** — strengths, gaps, a hire recommendation, and targeted interview questions, all grounded in the structured score breakdown
+- **Portfolio & GitHub analysis** — extracts links (including hyperlinks hidden behind text like "GitHub") from resumes, and pulls live GitHub data (repos, languages, stars, README quality) into a technical signal score
+- **Bias/fairness audit** — recomputes the match score with candidate name, gendered pronouns, and identity-signal words redacted, and reports the score delta
+- **Real email outreach** — connects a recruiter's own Gmail via OAuth, with a mandatory preview-then-confirm step before any email is sent
+- **Full-stack, containerized** — one `docker compose up` runs the entire system
 
----
-
-##  Why This Project Matters
-
-Traditional resume screening is slow, biased, and inconsistent. Recruiters spend hours parsing PDFs only to miss qualified candidates buried in formatting. RecruitLens solves this by:
-
-- **Eliminating keyword bias** — uses semantic similarity, not just keyword matching
-- **Scaling effortlessly** — screen 1 or 100 resumes in seconds
-- **Explaining decisions** — every ranking comes with AI-generated feedback
-- **Reducing time-to-hire** — structured extraction + auto-generated candidate reports
-
----
-
-##  Features
-
-- Bulk Resume Screening | Upload multiple resumes, rank all against a job description |
-- Single Resume Analysis | Deep-dive analysis of one candidate via PDF upload |
-- AI Recruiter Feedback | LLM (Llama 3 via Groq) generates hiring recommendations |
-- Resume Category Prediction | Auto-classifies resumes by domain (e.g., Data Science, DevOps) |
-- Skill Extraction & Gap Detection | Extracts candidate skills, highlights what's missing |
-- Candidate Ranking | Semantic similarity score against the job description |
-- Resume Parsing | Extracts name, email, phone, and years of experience |
-- PDF Report Generation | One-click downloadable candidate report |
-- Interactive Visualizations | Plotly charts for match scores and skill comparisons |
-
----
-
-## 🖼️ Screenshots (Added this section for now. I will add snaps soon..)
-
-> - `screenshots/dashboard.png` → Main dashboard / bulk screening view
-> - `screenshots/single_analysis.png` → Single resume analysis page
-> - `screenshots/ranking_chart.png` → Candidate ranking visualization
-> - `screenshots/pdf_report.png` → Sample generated PDF report
-
----
-
-## 🏗️ Tech Stack
+## Architecture
 
 ```
-RecruitLens/
-├── NLP & Embeddings   → Sentence Transformers (all-MiniLM-L6-v2), spaCy
-├── LLM Feedback       → Groq API (Llama 3)
-├── Classification     → scikit-learn (TF-IDF + ML classifier)
-├── UI                 → Streamlit
-├── Visualization      → Plotly
-├── PDF Generation     → FPDF2
-└── Language           → Python 3.10+
+                    ┌─────────────────┐
+                    │   Next.js Web   │
+                    └────────┬────────┘
+                             │ REST
+                    ┌────────▼────────┐
+                    │  FastAPI Backend │
+                    └────────┬────────┘
+              ┌──────────────┼──────────────┐
+     ┌────────▼───────┐ ┌────▼────┐ ┌───────▼──────┐
+     │   PostgreSQL    │ │  MinIO  │ │ External APIs │
+     │ (jobs, candi-   │ │ (resume │ │ Groq (LLM)    │
+     │ dates, scores)  │ │  files) │ │ GitHub API    │
+     └─────────────────┘ └─────────┘ │ Gmail API     │
+                                     └──────────────┘
 ```
 
----
+### Matching pipeline
 
-## 🚀 Getting Started
+```
+Resume/JD text
+     │
+     ▼
+Structured extraction (LLM, JSON schema)
+     │
+     ▼
+Skill taxonomy normalization
+     │
+     ▼
+Multi-vector embeddings (skills / title / experience, separately)
+     │
+     ▼
+Cross-encoder reranking (JD + resume evaluated jointly)
+     │
+     ▼
+Weighted composite score + GitHub signal bonus
+     │
+     ▼
+LLM explanation layer (strengths, gaps, recommendation, interview questions)
+```
 
-### 1. Clone the Repository
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Backend | FastAPI, SQLAlchemy, Alembic |
+| Database | PostgreSQL |
+| File storage | MinIO (S3-compatible) |
+| ML / NLP | sentence-transformers (bi-encoder + cross-encoder), spaCy |
+| LLM | Groq (Llama 3.3) — structured extraction, feedback generation, role-profile synthesis |
+| Frontend | Next.js 14 (App Router), TypeScript, Tailwind CSS, TanStack Query |
+| Integrations | GitHub REST API, Gmail API (OAuth2) |
+| Infrastructure | Docker, Docker Compose |
+
+## Getting started
+
+### Prerequisites
+- Docker Desktop
+- A [Groq API key](https://console.groq.com)
+- A GitHub personal access token (no scopes needed — public data only)
+- A Google Cloud OAuth client (Web application type) for Gmail sending
+
+### Setup
+
+1. Clone the repo and create `infra/.env`:
+```
+GROQ_API_KEY=your_groq_key
+GITHUB_TOKEN=your_github_token
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REDIRECT_URI=http://localhost:8000/integrations/gmail/callback
+```
+
+2. Start the stack:
 ```bash
-git clone https://github.com/vasantrj/RecruitLens.git
-cd recruitlens
+cd infra
+docker compose up -d
 ```
 
-### 2. Install Dependencies
+3. Run database migrations (first time only):
 ```bash
-pip install -r requirements.txt
-python -m spacy download en_core_web_sm
+docker exec -it recruitlens_api alembic upgrade head
 ```
 
-### 3. Set Up Environment Variables
-```bash
-# Create a .env file
-GROQ_API_KEY=your_groq_api_key_here
-```
+4. Open the app:
+- Frontend: http://localhost:3000
+- API docs: http://localhost:8000/docs
+- MinIO console: http://localhost:9001 (`minioadmin` / `minioadmin`)
 
-### 4. Run the App
-```bash
-streamlit run app.py
-```
+5. (Optional) Connect Gmail for email outreach — visit http://localhost:8000/integrations/gmail/connect and follow the OAuth flow.
 
----
+### Everyday use
 
-## 📁 Project Structure
+| Task | Command |
+|---|---|
+| Start everything | `cd infra && docker compose up -d` |
+| Rebuild after code changes | `docker compose up --build -d` |
+| Stop everything (keeps data) | `docker compose down` |
+| View logs | `docker compose logs -f api` |
+| Run a new migration | `docker exec -it recruitlens_api alembic upgrade head` |
 
-```
-recruitlens/
-├── app.py                  # Streamlit entry point
-├── modules/
-│   ├── parser.py           # Resume parsing (spaCy NER)
-│   ├── matcher.py          # Semantic similarity & ranking
-│   ├── classifier.py       # Resume category prediction
-│   ├── feedback.py         # Groq LLM feedback generator
-│   └── report.py           # PDF report generation (FPDF2)
-├── assets/
-├── screenshots/
-├── requirements.txt
-└── .env.example
-```
+## Known limitations
 
----
+- **Taxonomy-based skill matching is exact/alias-based, not inferential.** A candidate with Scikit-learn experience and a Data Science internship title won't automatically be credited with "Machine Learning" unless it's stated explicitly or aliased in the taxonomy. This is a deliberate simplification — a production system would add semantic skill inference (checking embedding similarity between candidate skills and required skills, not just exact/alias matches).
+- **Match score weights are manually tuned, not learned.** The scoring formula combines skill overlap, experience match, title similarity, and reranker score with hand-set weights. A learning-to-rank model trained on labeled (resume, JD, human judgment) data would let these weights be learned rather than guessed — left as a natural next step once a labeled dataset exists.
+- **GitHub technical signal score is a heuristic, not a rigorous metric.** It rewards repo count, stars, language diversity, and README presence with hand-picked point values. It's a useful directional signal, not a calibrated measure of skill.
+- **Bias audit covers name/pronoun/gender-word redaction only.** It does not test for other protected characteristics (age, disability, etc.) and is a starting point for fairness testing, not a certification of fairness.
+- **PDF parsing quality varies** with resume formatting — heavily designed, multi-column, or scanned/image-based resumes may extract text poorly.
 
-## 🔄 How It Works
+## Roadmap / possible extensions
 
-```
-📂 Resume(s) + Job Description
-        ↓
-  [spaCy NER Parser]  →  Extract name, email, phone, skills, experience
-        ↓
-  [Sentence Transformers]  →  Generate semantic embeddings
-        ↓
-  [Cosine Similarity]  →  Score & rank candidates vs. job description
-        ↓
-  [Groq / Llama 3]  →  Generate AI recruiter feedback per candidate
-        ↓
-  [Streamlit UI + Plotly]  →  Display rankings, charts, insights
-        ↓
-  [FPDF2]  →  Export candidate report as PDF
-```
+- Learning-to-rank model trained on recruiter feedback (thumbs up/down on rankings)
+- Multi-tenant workspaces with authentication
+- Async job processing (Celery + Redis) for bulk resume screening at scale
+- Corpus-verified role profiles (cross-referencing real job postings, not just LLM-generated ones)
+- Expanded skill taxonomy sourced from ESCO or O*NET
 
----
+## License
 
-## 🙌 Contributing
-
-Pull requests are welcome. For major changes, open an issue first to discuss what you'd like to change.
-
----
-
-## 📄 License
-
-This project is licensed under the [MIT License](LICENSE).
-
----
-
-<p align="center">Built with 🧠 and Python · RecruitLens © 2026</p>
-
-<p align="center">If this project helped you or you found it interesting, consider giving it a ⭐</p>
+This is a personal/portfolio project. Feel free to explore the code for learning purposes.
