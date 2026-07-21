@@ -8,20 +8,28 @@ from src.database import get_db
 from src.models.candidate import Candidate
 from src.models.email_log import EmailLog
 from src.models.company_integration import CompanyIntegration
+from src.models.user import User
 from src.schemas.outreach import EmailPreviewRequest, EmailSendRequest
 from src.services.outreach.templates import render_template
 from src.services.outreach.email_client import send_email_via_gmail
+from src.deps import get_current_user
 
 router = APIRouter(prefix="/outreach", tags=["outreach"])
 
 
 @router.post("/preview")
-def preview_email(payload: EmailPreviewRequest, db: Session = Depends(get_db)):
+def preview_email(
+    payload: EmailPreviewRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Step 1 of the send flow: generates the email content for the recruiter to review.
     Does NOT send anything — this is the manual review safety step.
     """
-    candidate = db.query(Candidate).filter(Candidate.id == payload.candidate_id).first()
+    candidate = db.query(Candidate).filter(
+        Candidate.id == payload.candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
@@ -37,17 +45,25 @@ def preview_email(payload: EmailPreviewRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/send")
-def send_email(payload: EmailSendRequest, db: Session = Depends(get_db)):
+def send_email(
+    payload: EmailSendRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     """
     Step 2 of the send flow: actually sends the email.
     Requires the recruiter to have already seen the preview and explicitly
     confirmed by calling this endpoint with the (possibly edited) subject/body.
     """
-    candidate = db.query(Candidate).filter(Candidate.id == payload.candidate_id).first()
+    candidate = db.query(Candidate).filter(
+        Candidate.id == payload.candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    integration = db.query(CompanyIntegration).filter(CompanyIntegration.provider == "gmail").first()
+    integration = db.query(CompanyIntegration).filter(
+        CompanyIntegration.provider == "gmail", CompanyIntegration.user_id == current_user.id
+    ).first()
     if not integration or not integration.access_token:
         raise HTTPException(status_code=400, detail="Gmail is not connected. Call /integrations/gmail/connect first.")
 
@@ -90,7 +106,17 @@ def send_email(payload: EmailSendRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/history/{candidate_id}")
-def get_email_history(candidate_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_email_history(
+    candidate_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
     logs = db.query(EmailLog).filter(EmailLog.candidate_id == candidate_id).all()
     return [
         {

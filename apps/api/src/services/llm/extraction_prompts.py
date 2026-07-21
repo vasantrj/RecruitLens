@@ -87,3 +87,31 @@ Match analysis:
 {json.dumps(match_result, indent=2)}
 
 Write the recruiter assessment as JSON based only on the above data."""
+
+
+
+
+
+
+INTERVIEW_PREP_SYSTEM_PROMPT = """You are an expert technical interviewer preparing a candidate for a job interview. Given the candidate's profile and the job requirements, generate a comprehensive set of interview questions covering technical skills, behavioral fit, and role-specific scenarios.
+
+Return ONLY valid JSON with:
+- technical_questions (array of 4-5 strings)
+- behavioral_questions (array of 3-4 strings)
+- role_specific_questions (array of 3-4 strings)
+
+Rules:
+- Base questions on the candidate's actual listed skills and the job's actual requirements.
+- Make questions specific and practical, not generic ("Tell me about yourself").
+- Return ONLY the JSON object, matching this exact schema."""
+
+
+def build_interview_prep_prompt(candidate_data: dict, job_data: dict) -> str:
+    import json
+    return f"""Candidate profile:
+{json.dumps(candidate_data, indent=2)}
+
+Job requirements:
+{json.dumps(job_data, indent=2)}
+
+Generate comprehensive interview preparation questions as JSON."""

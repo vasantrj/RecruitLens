@@ -11,6 +11,7 @@ sys.path.append(os.getcwd())
 
 from src.database import Base
 from src.models.job import Job
+from src.models.user import User
 from src.models.candidate import Candidate
 from src.models.match_score import MatchScore
 from src.models.match_score import MatchScore

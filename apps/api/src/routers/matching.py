@@ -8,9 +8,11 @@ from src.database import get_db
 from src.models.candidate import Candidate
 from src.models.job import Job
 from src.models.match_score import MatchScore
+from src.models.user import User
 from src.schemas.matching import MatchResponse
 from src.services.matching.scorer import compute_match_score
 from src.services.bias_audit import redact_identity_signals, redact_candidate_data
+from src.deps import get_current_user
 
 router = APIRouter(prefix="/matching", tags=["matching"])
 
@@ -33,13 +35,21 @@ def build_jd_text_for_reranker(job: Job, job_data: dict) -> str:
 # NOTE: this route MUST be defined before /{candidate_id}/{job_id} below,
 # otherwise "bias-audit" gets incorrectly matched as a job_id.
 @router.post("/{match_id}/bias-audit")
-def run_bias_audit(match_id: uuid.UUID, db: Session = Depends(get_db)):
+def run_bias_audit(
+    match_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     match = db.query(MatchScore).filter(MatchScore.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    candidate = db.query(Candidate).filter(Candidate.id == match.candidate_id).first()
-    job = db.query(Job).filter(Job.id == match.job_id).first()
+    candidate = db.query(Candidate).filter(
+        Candidate.id == match.candidate_id, Candidate.user_id == current_user.id
+    ).first()
+    job = db.query(Job).filter(
+        Job.id == match.job_id, Job.user_id == current_user.id
+    ).first()
 
     if not candidate or not job:
         raise HTTPException(status_code=404, detail="Related candidate or job not found")
@@ -49,8 +59,6 @@ def run_bias_audit(match_id: uuid.UUID, db: Session = Depends(get_db)):
 
     jd_text_for_reranker = build_jd_text_for_reranker(job, job_data)
 
-    # Recompute the ORIGINAL (non-redacted) score fresh, using current candidate state,
-    # so the only difference between this and the redacted run is the redaction itself.
     fresh_original_result = compute_match_score(
         candidate_data=candidate_data,
         job_data=job_data,
@@ -91,7 +99,15 @@ def run_bias_audit(match_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.get("/job/{job_id}/rankings")
-def get_job_rankings(job_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_job_rankings(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
     matches = (
         db.query(MatchScore)
         .filter(MatchScore.job_id == job_id)
@@ -115,12 +131,19 @@ def get_job_rankings(job_id: uuid.UUID, db: Session = Depends(get_db)):
 
 
 @router.post("/{candidate_id}/{job_id}", response_model=MatchResponse)
-def match_candidate_to_job(candidate_id: uuid.UUID, job_id: uuid.UUID, db: Session = Depends(get_db)):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def match_candidate_to_job(
+    candidate_id: uuid.UUID,
+    job_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 

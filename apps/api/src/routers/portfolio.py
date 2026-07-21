@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from src.database import get_db
 from src.models.candidate import Candidate
 from src.models.portfolio_link import PortfolioLink
+from src.models.user import User
 from src.services.extraction.link_extractor import extract_and_classify_links
 from src.services.portfolio.website_analyzer import summarize_personal_site
 from src.services.portfolio.github_analyzer import (
@@ -15,13 +16,20 @@ from src.services.portfolio.github_analyzer import (
     analyze_github_repo,
     compute_technical_signal_score,
 )
+from src.deps import get_current_user
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
 
 @router.post("/{candidate_id}/extract-links")
-def extract_candidate_links(candidate_id: uuid.UUID, db: Session = Depends(get_db)):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def extract_candidate_links(
+    candidate_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
@@ -67,8 +75,14 @@ def extract_candidate_links(candidate_id: uuid.UUID, db: Session = Depends(get_d
 
 
 @router.post("/{candidate_id}/analyze-github")
-def analyze_candidate_github(candidate_id: uuid.UUID, db: Session = Depends(get_db)):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def analyze_candidate_github(
+    candidate_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
 
@@ -104,8 +118,19 @@ def analyze_candidate_github(candidate_id: uuid.UUID, db: Session = Depends(get_
         **signal,
     }
 
+
 @router.get("/{candidate_id}")
-def get_candidate_links(candidate_id: uuid.UUID, db: Session = Depends(get_db)):
+def get_candidate_links(
+    candidate_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+
     links = db.query(PortfolioLink).filter(PortfolioLink.candidate_id == candidate_id).all()
     return [
         {"url": l.url, "type": l.link_type, "summary": l.summary}

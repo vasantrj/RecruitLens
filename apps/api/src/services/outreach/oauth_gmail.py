@@ -24,12 +24,13 @@ def build_flow() -> Flow:
     return flow
 
 
-def get_authorization_url() -> str:
+def get_authorization_url(state: str = None) -> str:
     flow = build_flow()
     auth_url, _ = flow.authorization_url(
         access_type="offline",
         include_granted_scopes="true",
         prompt="consent",
+        state=state,
     )
     return auth_url
 

@@ -8,19 +8,30 @@ from src.database import get_db
 from src.models.match_score import MatchScore
 from src.models.candidate import Candidate
 from src.models.job import Job
+from src.models.user import User
 from src.services.llm.feedback_generator import generate_recruiter_feedback
+from src.services.llm.feedback_generator import generate_interview_prep
+from src.deps import get_current_user
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 
 @router.post("/{match_id}")
-def generate_feedback(match_id: uuid.UUID, db: Session = Depends(get_db)):
+def generate_feedback(
+    match_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
     match = db.query(MatchScore).filter(MatchScore.id == match_id).first()
     if not match:
         raise HTTPException(status_code=404, detail="Match not found")
 
-    candidate = db.query(Candidate).filter(Candidate.id == match.candidate_id).first()
-    job = db.query(Job).filter(Job.id == match.job_id).first()
+    candidate = db.query(Candidate).filter(
+        Candidate.id == match.candidate_id, Candidate.user_id == current_user.id
+    ).first()
+    job = db.query(Job).filter(
+        Job.id == match.job_id, Job.user_id == current_user.id
+    ).first()
 
     if not candidate or not job:
         raise HTTPException(status_code=404, detail="Related candidate or job not found")
@@ -45,4 +56,35 @@ def generate_feedback(match_id: uuid.UUID, db: Session = Depends(get_db)):
     return {
         "match_id": match.id,
         "feedback": feedback,
+    }
+
+
+@router.post("/{match_id}/interview-prep")
+def get_interview_prep(
+    match_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    match = db.query(MatchScore).filter(MatchScore.id == match_id).first()
+    if not match:
+        raise HTTPException(status_code=404, detail="Match not found")
+
+    candidate = db.query(Candidate).filter(
+        Candidate.id == match.candidate_id, Candidate.user_id == current_user.id
+    ).first()
+    job = db.query(Job).filter(
+        Job.id == match.job_id, Job.user_id == current_user.id
+    ).first()
+
+    if not candidate or not job:
+        raise HTTPException(status_code=404, detail="Related candidate or job not found")
+
+    candidate_data = json.loads(candidate.parsed_data) if candidate.parsed_data else {}
+    job_data = json.loads(job.parsed_requirements) if job.parsed_requirements else {}
+
+    prep = generate_interview_prep(candidate_data, job_data)
+
+    return {
+        "match_id": match.id,
+        "interview_prep": prep,
     }

@@ -10,6 +10,8 @@ from src.database import Base
 class Candidate(Base):
     __tablename__ = "candidates"
 
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     job_id = Column(UUID(as_uuid=True), ForeignKey("jobs.id"), nullable=True)
 
