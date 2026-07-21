@@ -7,10 +7,12 @@ from sqlalchemy.orm import Session
 
 from src.database import get_db
 from src.models.candidate import Candidate
+from src.models.user import User
 from src.schemas.candidate import CandidateResponse
 from src.utils.file_storage import upload_resume
 from src.services.extraction.resume_parser import extract_resume_text, extract_pdf_hyperlinks
 from src.services.extraction.candidate_extractor import extract_structured_resume_data
+from src.deps import get_current_user
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
@@ -20,6 +22,7 @@ async def upload_candidate(
     file: UploadFile = File(...),
     job_id: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     if not file.filename.lower().endswith((".pdf", ".docx")):
         raise HTTPException(status_code=400, detail="Only PDF and DOCX files are supported.")
@@ -44,6 +47,7 @@ async def upload_candidate(
         raise HTTPException(status_code=500, detail=f"Failed to process resume: {str(e)}")
 
     candidate = Candidate(
+        user_id=current_user.id,
         job_id=parsed_job_id,
         resume_file_path=file_key,
         raw_text=raw_text,
@@ -56,16 +60,28 @@ async def upload_candidate(
 
 
 @router.get("/{candidate_id}", response_model=CandidateResponse)
-def get_candidate(candidate_id: uuid.UUID, db: Session = Depends(get_db)):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def get_candidate(
+    candidate_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     return candidate
 
 
 @router.post("/{candidate_id}/extract")
-def extract_candidate_data(candidate_id: uuid.UUID, db: Session = Depends(get_db)):
-    candidate = db.query(Candidate).filter(Candidate.id == candidate_id).first()
+def extract_candidate_data(
+    candidate_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    candidate = db.query(Candidate).filter(
+        Candidate.id == candidate_id, Candidate.user_id == current_user.id
+    ).first()
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     if not candidate.raw_text:

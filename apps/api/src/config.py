@@ -17,6 +17,8 @@ class Settings(BaseSettings):
     google_client_secret: str = ""
     google_redirect_uri: str = "http://localhost:8000/integrations/gmail/callback"
 
+    jwt_secret_key: str = "change-this-to-a-random-secret-in-production"
+
     class Config:
         env_file = ".env"
 

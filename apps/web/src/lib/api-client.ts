@@ -9,6 +9,42 @@ export const apiClient = axios.create({
   },
 });
 
+// Attach the JWT token to every request automatically
+apiClient.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+// If the token is invalid/expired, redirect to login
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== "undefined") {
+      localStorage.removeItem("access_token");
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
+// ---- Auth ----
+export const registerUser = (data: {
+  email: string;
+  password: string;
+  account_type: string;
+  company_name?: string;
+}) => apiClient.post("/auth/register", data).then((res) => res.data);
+
+export const loginUser = (data: { email: string; password: string }) =>
+  apiClient.post("/auth/login", data).then((res) => res.data);
+
+export const getCurrentUser = () => apiClient.get("/auth/me").then((res) => res.data);
+
 // ---- Jobs ----
 export const createJob = (data: { title: string; description?: string; is_role_only?: boolean }) =>
   apiClient.post("/jobs/", data).then((res) => res.data);
@@ -46,6 +82,12 @@ export const getCandidate = (candidateId: string) =>
 export const matchCandidateToJob = (candidateId: string, jobId: string) =>
   apiClient.post(`/matching/${candidateId}/${jobId}`).then((res) => res.data);
 
+export const getJobRankings = (jobId: string) =>
+  apiClient.get(`/matching/job/${jobId}/rankings`).then((res) => res.data);
+
+export const getMatchDetails = (matchId: string) =>
+  apiClient.get(`/matching/${matchId}`).then((res) => res.data).catch(() => null);
+
 // ---- Feedback ----
 export const generateFeedback = (matchId: string) =>
   apiClient.post(`/feedback/${matchId}`).then((res) => res.data);
@@ -57,12 +99,6 @@ export const extractPortfolioLinks = (candidateId: string) =>
 export const analyzeGithub = (candidateId: string) =>
   apiClient.post(`/portfolio/${candidateId}/analyze-github`).then((res) => res.data);
 
-
-// ---- Feedback (additional) ----
-export const getMatchDetails = (matchId: string) =>
-  apiClient.get(`/matching/${matchId}`).then((res) => res.data).catch(() => null);
-
-// ---- Portfolio (additional) ----
 export const getPortfolioLinks = (candidateId: string) =>
   apiClient.get(`/portfolio/${candidateId}`).then((res) => res.data);
 
@@ -82,5 +118,6 @@ export const sendEmail = (data: {
 
 export const getGmailStatus = () => apiClient.get("/integrations/gmail/status").then((res) => res.data);
 
-export const getJobRankings = (jobId: string) =>
-  apiClient.get(`/matching/job/${jobId}/rankings`).then((res) => res.data);
+
+export const getInterviewPrep = (matchId: string) =>
+  apiClient.post(`/feedback/${matchId}/interview-prep`).then((res) => res.data);
