@@ -121,3 +121,43 @@ export const getGmailStatus = () => apiClient.get("/integrations/gmail/status").
 
 export const getInterviewPrep = (matchId: string) =>
   apiClient.post(`/feedback/${matchId}/interview-prep`).then((res) => res.data);
+
+export const uploadCandidatesBulk = (files: File[], jobId: string) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  formData.append("job_id", jobId);
+
+  return apiClient
+    .post("/candidates/upload-bulk", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    })
+    .then((res) => res.data);
+};
+
+
+export const bulkMatch = (jobId: string, candidateIds: string[]) =>
+  apiClient.post("/matching/bulk-match", { job_id: jobId, candidate_ids: candidateIds }).then((res) => res.data);
+
+export const bulkSend = (data: {
+  shortlisted: { candidate_id: string; to_email: string }[];
+  rejected: { candidate_id: string; to_email: string }[];
+  shortlisted_subject: string;
+  shortlisted_body: string;
+  rejected_subject: string;
+  rejected_body: string;
+}) => apiClient.post("/outreach/bulk-send", data).then((res) => res.data);
+
+export const getExportUrl = (jobId: string) => {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : "";
+  return `${apiUrl}/matching/job/${jobId}/export?format=csv&token=${token}`;
+};
+
+export const exportSelectedCandidates = (jobId: string, candidateIds: string[]) =>
+  apiClient
+    .post("/matching/export-selected", { job_id: jobId, candidate_ids: candidateIds })
+    .then((res) => res.data);
+
+    
+export const checkDuplicates = (candidateId: string) =>
+  apiClient.get(`/candidates/${candidateId}/duplicates`).then((res) => res.data);
