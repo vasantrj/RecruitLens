@@ -64,9 +64,14 @@ export default function JobDetailPage() {
           {job?.is_role_only === "true" ? "Role-only" : "Full JD"}
         </p>
 
-        <a href={`/jobs/${jobId}/rankings`} className="link text-sm mb-6 inline-block">
-          View Rankings
-        </a>
+        <div className="mb-6">
+          <a href={`/jobs/${jobId}/rankings`} className="link text-sm inline-block">
+            View Rankings
+          </a>
+          <a href={`/jobs/${jobId}/bulk-upload`} className="link text-sm inline-block ml-4">
+            Bulk Screening
+          </a>
+        </div>
 
         <FadeInStagger>
           <FadeInItem>

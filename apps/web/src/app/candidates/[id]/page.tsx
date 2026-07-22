@@ -13,6 +13,7 @@ import {
   sendEmail,
   getGmailStatus,
   getInterviewPrep,
+  checkDuplicates,
 } from "@/lib/api-client";
 import { FadeInStagger, FadeInItem } from "@/components/motion";
 import { AuthGuard } from "@/components/auth-guard";
@@ -26,7 +27,10 @@ export default function CandidateDetailPage() {
   const accountType = getAccountType();
 
   const [emailTemplate, setEmailTemplate] = useState("invite_interview");
-  const [emailPreview, setEmailPreview] = useState<any>(null);
+  const [toEmail, setToEmail] = useState("");
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [previewed, setPreviewed] = useState(false);
   const [sendResult, setSendResult] = useState<any>(null);
 
   const { data: candidate } = useQuery({
@@ -44,6 +48,13 @@ export default function CandidateDetailPage() {
     queryKey: ["links", candidateId],
     queryFn: () => getPortfolioLinks(candidateId),
   });
+
+  const { data: duplicatesData } = useQuery({
+    queryKey: ["duplicates", candidateId],
+    queryFn: () => checkDuplicates(candidateId),
+  });
+
+  const duplicates = duplicatesData?.duplicate_applications || [];
 
   const feedbackMutation = useMutation({
     mutationFn: () => generateFeedback(matchId as string),
@@ -64,16 +75,21 @@ export default function CandidateDetailPage() {
 
   const previewMutation = useMutation({
     mutationFn: () => previewEmail(candidateId, emailTemplate, "the role"),
-    onSuccess: (data) => setEmailPreview(data),
+    onSuccess: (data) => {
+      setToEmail(data.to_email || "");
+      setSubject(data.subject);
+      setBody(data.body);
+      setPreviewed(true);
+    },
   });
 
   const sendMutation = useMutation({
     mutationFn: () =>
       sendEmail({
         candidate_id: candidateId,
-        to_email: emailPreview.to_email,
-        subject: emailPreview.subject,
-        body: emailPreview.body,
+        to_email: toEmail,
+        subject,
+        body,
         template_key: emailTemplate,
       }),
     onSuccess: (data) => setSendResult(data),
@@ -105,6 +121,13 @@ export default function CandidateDetailPage() {
 
         <h1 className="h1 mb-1">{candidate?.full_name || "Candidate"}</h1>
         <p className="text-sm text-muted mb-6">{candidate?.email}</p>
+
+        {duplicates.length > 0 && (
+          <div className="card-alt mb-6 text-sm status-warning">
+            ⚠ This candidate has applied to {duplicates.length} other job{duplicates.length > 1 ? "s" : ""} you're
+            tracking.
+          </div>
+        )}
 
         <FadeInStagger>
           {/* Structured resume data */}
@@ -283,6 +306,9 @@ export default function CandidateDetailPage() {
             <FadeInItem>
               <section className="card">
                 <h2 className="h2 mb-3">Email Outreach</h2>
+                <p className="text-xs text-faint mb-3">
+                  Sent from your own connected Gmail account.
+                </p>
 
                 {!gmailStatus?.connected && (
                   <p className="text-sm status-warning mb-3">
@@ -298,7 +324,7 @@ export default function CandidateDetailPage() {
                   value={emailTemplate}
                   onChange={(e) => {
                     setEmailTemplate(e.target.value);
-                    setEmailPreview(null);
+                    setPreviewed(false);
                   }}
                   className="input mb-3"
                 >
@@ -307,19 +333,39 @@ export default function CandidateDetailPage() {
                   <option value="reject">Reject</option>
                 </select>
 
-                <button
-                  onClick={() => previewMutation.mutate()}
-                  disabled={previewMutation.isPending}
-                  className="btn-secondary mr-2"
-                >
-                  {previewMutation.isPending ? "Loading..." : "Preview Email"}
-                </button>
+                {!previewed && (
+                  <button
+                    onClick={() => previewMutation.mutate()}
+                    disabled={previewMutation.isPending || !gmailStatus?.connected}
+                    className="btn-secondary mr-2"
+                  >
+                    {previewMutation.isPending ? "Loading..." : "Preview Email"}
+                  </button>
+                )}
 
-                {emailPreview && (
+                {previewed && (
                   <div className="card-alt mt-4 text-sm">
-                    <div className="text-muted mb-1">To: {emailPreview.to_email}</div>
-                    <div className="font-medium mb-2">{emailPreview.subject}</div>
-                    <div className="whitespace-pre-wrap mb-4">{emailPreview.body}</div>
+                    <label className="text-muted block mb-1">To</label>
+                    <input
+                      value={toEmail}
+                      onChange={(e) => setToEmail(e.target.value)}
+                      className="input mb-3"
+                    />
+
+                    <label className="text-muted block mb-1">Subject</label>
+                    <input
+                      value={subject}
+                      onChange={(e) => setSubject(e.target.value)}
+                      className="input mb-3"
+                    />
+
+                    <label className="text-muted block mb-1">Body</label>
+                    <textarea
+                      value={body}
+                      onChange={(e) => setBody(e.target.value)}
+                      rows={8}
+                      className="input mb-4"
+                    />
 
                     <button
                       onClick={() => sendMutation.mutate()}

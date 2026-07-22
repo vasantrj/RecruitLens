@@ -3,6 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from src.database import get_db
 from src.models.candidate import Candidate
@@ -103,6 +104,79 @@ def send_email(
         "status": log_entry.status,
         "error": log_entry.error_message,
     }
+
+
+class BulkSendItem(BaseModel):
+    candidate_id: str
+    to_email: str
+
+
+class BulkSendRequest(BaseModel):
+    shortlisted: list[BulkSendItem]
+    rejected: list[BulkSendItem]
+    shortlisted_subject: str
+    shortlisted_body: str
+    rejected_subject: str
+    rejected_body: str
+
+@router.post("/bulk-send")
+def bulk_send(
+    payload: BulkSendRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    integration = db.query(CompanyIntegration).filter(
+        CompanyIntegration.provider == "gmail", CompanyIntegration.user_id == current_user.id
+    ).first()
+    if not integration or not integration.access_token:
+        raise HTTPException(status_code=400, detail="Gmail is not connected.")
+
+    def send_batch(items: list[BulkSendItem], subject: str, body: str, template_label: str):
+        sent = []
+        for item in items:
+            candidate = db.query(Candidate).filter(
+                Candidate.id == item.candidate_id, Candidate.user_id == current_user.id
+            ).first()
+            if not candidate:
+                sent.append({"candidate_id": item.candidate_id, "status": "skipped_not_found"})
+                continue
+
+            log_entry = EmailLog(
+                candidate_id=candidate.id,
+                to_email=item.to_email,
+                subject=subject,
+                body=body,
+                template_used=template_label,
+                status="pending",
+            )
+            db.add(log_entry)
+            db.commit()
+            db.refresh(log_entry)
+
+            try:
+                result = send_email_via_gmail(
+                    access_token=integration.access_token,
+                    refresh_token=integration.refresh_token,
+                    token_expiry=integration.token_expiry,
+                    to_email=item.to_email,
+                    subject=subject,
+                    body_text=body,
+                )
+                log_entry.status = "sent"
+                log_entry.gmail_message_id = result.get("message_id")
+                log_entry.sent_at = datetime.utcnow()
+            except Exception as e:
+                log_entry.status = "failed"
+                log_entry.error_message = str(e)
+
+            db.commit()
+            sent.append({"candidate_id": str(candidate.id), "status": log_entry.status})
+        return sent
+
+    shortlisted_results = send_batch(payload.shortlisted, payload.shortlisted_subject, payload.shortlisted_body, "shortlisted")
+    rejected_results = send_batch(payload.rejected, payload.rejected_subject, payload.rejected_body, "rejected")
+
+    return {"shortlisted": shortlisted_results, "rejected": rejected_results}
 
 
 @router.get("/history/{candidate_id}")
