@@ -161,3 +161,27 @@ export const exportSelectedCandidates = (jobId: string, candidateIds: string[]) 
     
 export const checkDuplicates = (candidateId: string) =>
   apiClient.get(`/candidates/${candidateId}/duplicates`).then((res) => res.data);
+
+export const updateProfile = (data: { full_name: string }) =>
+  apiClient.patch("/auth/me", data).then((res) => res.data);
+
+export const changePassword = (data: { current_password: string; new_password: string }) =>
+  apiClient.post("/auth/change-password", data).then((res) => res.data);
+
+export const forgotPassword = (email: string) =>
+  apiClient.post("/auth/forgot-password", { email }).then((res) => res.data);
+
+export const resetPassword = (data: { token: string; new_password: string }) =>
+  apiClient.post("/auth/reset-password", data).then((res) => res.data);
+
+export const submitContactForm = (data: { name: string; email: string; subject: string; message: string }) =>
+  apiClient.post("/contact/", data).then((res) => res.data);
+
+export const getCandidateCount = () =>
+  apiClient.get("/candidates/count/total").then((res) => res.data);
+
+export const archiveJob = (jobId: string) =>
+  apiClient.post(`/jobs/${jobId}/archive`).then((res) => res.data);
+
+export const updateJob = (jobId: string, data: { title?: string; description?: string }) =>
+  apiClient.patch(`/jobs/${jobId}`, data).then((res) => res.data);

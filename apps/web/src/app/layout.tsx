@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
+import { ConditionalNavbar } from "@/components/conditional-navbar";
+import { PageLoader } from "@/components/page-loader";
+import { ConditionalPageBackground } from "@/components/conditional-page-background";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -26,14 +29,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      {/* <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gray-950 text-gray-100 min-h-screen`}
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ background: "var(--paper)", color: "var(--ink)" }}
       >
-        <Providers>{children}</Providers>
-      </body> */}
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`} style={{ background: "var(--paper)", color: "var(--ink)" }}>
-  <Providers>{children}</Providers>
-</body>
+        <Providers>
+          <PageLoader />
+          <ConditionalPageBackground />
+          <ConditionalNavbar />
+          {children}
+        </Providers>
+      </body>
     </html>
   );
 }

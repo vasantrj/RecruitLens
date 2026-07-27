@@ -38,7 +38,9 @@ export default function RankingsPage() {
 
             {rankings?.map((r: any, i: number) => (
               <FadeInItem key={r.match_id}>
-                <a href={`/candidates/${r.candidate_id}?jobId=${jobId}&matchId=${r.match_id}`}>
+                <a
+                  href={`/candidates/${r.candidate_id}?jobId=${jobId}&matchId=${r.match_id}&score=${r.final_score}`}
+                >
                   <div className="card card-interactive">
                     <div className="flex justify-between items-center">
                       <div>

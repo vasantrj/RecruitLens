@@ -2,8 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.config import settings
-from src.routers import jobs, candidates, matching, feedback, portfolio, integrations, outreach
-
+from src.routers import jobs, candidates, matching, feedback, portfolio, integrations, outreach, auth, contact
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(
@@ -21,7 +20,7 @@ app.include_router(feedback.router)
 app.include_router(portfolio.router)
 app.include_router(integrations.router)
 app.include_router(outreach.router)
-
+app.include_router(contact.router)
 
 @app.get("/")
 def root():

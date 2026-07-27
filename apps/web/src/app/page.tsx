@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { createJob, createRoleOnlyJob, listJobs } from "@/lib/api-client";
+import { createJob, createRoleOnlyJob, listJobs, archiveJob } from "@/lib/api-client";
 import { FadeInStagger, FadeInItem } from "@/components/motion";
 import { AuthGuard } from "@/components/auth-guard";
+import { useToast } from "@/components/toast";
 
 export default function HomePage() {
+  const queryClient = useQueryClient();
+  const { showToast } = useToast();
   const [mode, setMode] = useState<"jd" | "role">("jd");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -34,78 +37,137 @@ export default function HomePage() {
     },
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (jobId: string) => archiveJob(jobId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["jobs"] });
+      showToast("Job archived.");
+    },
+  });
+
   const handleSubmit = () => {
     if (mode === "jd") jdMutation.mutate();
     else roleMutation.mutate();
   };
 
+  const handleShare = (jobId: string) => {
+    const url = `${window.location.origin}/jobs/${jobId}`;
+    navigator.clipboard.writeText(url);
+    showToast("Job link copied to clipboard.");
+  };
+
   const isLoading = jdMutation.isPending || roleMutation.isPending;
+  const hasJobs = jobs && jobs.length > 0;
+
+  const createJobCard = (
+    <div className="card">
+      <h2 className="h2 mb-4">Create a Job</h2>
+
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setMode("jd")}
+          className={`btn-toggle ${mode === "jd" ? "btn-toggle-active" : "btn-toggle-inactive"}`}
+        >
+          Full Job Description
+        </button>
+        <button
+          onClick={() => setMode("role")}
+          className={`btn-toggle ${mode === "role" ? "btn-toggle-active" : "btn-toggle-inactive"}`}
+        >
+          Role Title Only
+        </button>
+      </div>
+
+      <input
+        type="text"
+        placeholder={mode === "jd" ? "Job title (e.g. Data Science Intern)" : "Role title (e.g. Data Science Intern)"}
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        className="input mb-3"
+      />
+
+      {mode === "jd" && (
+        <textarea
+          placeholder="Paste the full job description here..."
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={6}
+          className="input mb-3"
+        />
+      )}
+
+      <button onClick={handleSubmit} disabled={!title || isLoading} className="btn-primary">
+        {isLoading ? "Creating..." : "Create Job"}
+      </button>
+    </div>
+  );
 
   return (
     <AuthGuard>
-      <main className="page">
+      <main className="page-wide">
         <h1 className="h1 mb-6">RecruitLens</h1>
 
-        <div className="card mb-8">
-          <h2 className="h2 mb-4">Create a Job</h2>
+        {!hasJobs && (
+          <div className="max-w-xl mx-auto">{createJobCard}</div>
+        )}
 
-          <div className="flex gap-2 mb-4">
-            <button
-              onClick={() => setMode("jd")}
-              className={`btn-toggle ${mode === "jd" ? "btn-toggle-active" : "btn-toggle-inactive"}`}
-            >
-              Full Job Description
-            </button>
-            <button
-              onClick={() => setMode("role")}
-              className={`btn-toggle ${mode === "role" ? "btn-toggle-active" : "btn-toggle-inactive"}`}
-            >
-              Role Title Only
-            </button>
-          </div>
+        {hasJobs && (
+          <div className="grid md:grid-cols-2 gap-6">
+            <div>{createJobCard}</div>
 
-          <input
-            type="text"
-            placeholder={mode === "jd" ? "Job title (e.g. Data Science Intern)" : "Role title (e.g. Data Science Intern)"}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="input mb-3"
-          />
+            <div>
+              <h2 className="h2 mb-4">Existing Jobs</h2>
+              <FadeInStagger>
+                <div className="space-y-2">
+                  {jobs?.map((job: any) => {
+                    let hasRequirements = false;
+                    try {
+                      hasRequirements = !!job.parsed_requirements && job.parsed_requirements !== "null";
+                    } catch {}
 
-          {mode === "jd" && (
-            <textarea
-              placeholder="Paste the full job description here..."
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={6}
-              className="input mb-3"
-            />
-          )}
+                    return (
+                      <FadeInItem key={job.id}>
+                        <div className="card">
+                          <Link href={`/jobs/${job.id}`}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-medium">{job.title}</div>
+                              <span className={`badge ${hasRequirements ? "badge-success" : "badge-warning"}`}>
+                                {hasRequirements ? "Active" : "Draft"}
+                              </span>
+                            </div>
+                            <div className="text-sm text-muted mb-3">
+                              {job.is_role_only === "true" ? "Role-only" : "Full JD"} · {job.id}
+                            </div>
+                          </Link>
 
-          <button onClick={handleSubmit} disabled={!title || isLoading} className="btn-primary">
-            {isLoading ? "Creating..." : "Create Job"}
-          </button>
-        </div>
-
-        <div>
-          <h2 className="h2 mb-4">Existing Jobs</h2>
-          <FadeInStagger>
-            <div className="space-y-2">
-              {jobs?.map((job: any) => (
-                <FadeInItem key={job.id}>
-                  <Link href={`/jobs/${job.id}`}>
-                    <div className="card card-interactive cursor-pointer">
-                      <div className="font-medium">{job.title}</div>
-                      <div className="text-sm text-muted">
-                        {job.is_role_only === "true" ? "Role-only" : "Full JD"} · {job.id}
-                      </div>
-                    </div>
-                  </Link>
-                </FadeInItem>
-              ))}
+                          <div className="flex gap-4 text-sm pt-2 border-t" style={{ borderColor: "var(--paper-border)" }}>
+                            <Link href={`/jobs/${job.id}/edit`} className="link-plain hover:underline">
+  Edit
+</Link>
+                            <button
+                              onClick={() => handleShare(job.id)}
+                              className="link-plain hover:underline"
+                            >
+                              Share
+                            </button>
+                            <button
+                              onClick={() => archiveMutation.mutate(job.id)}
+                              disabled={archiveMutation.isPending}
+                              className="hover:underline"
+                              style={{ color: "var(--danger)" }}
+                            >
+                              Archive
+                            </button>
+                          </div>
+                        </div>
+                      </FadeInItem>
+                    );
+                  })}
+                </div>
+              </FadeInStagger>
             </div>
-          </FadeInStagger>
-        </div>
+          </div>
+        )}
       </main>
     </AuthGuard>
   );

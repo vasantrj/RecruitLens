@@ -4,7 +4,8 @@ import json as json_module
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
+from pydantic import BaseModel
+from typing import Optional
 from src.database import get_db
 from src.models.job import Job
 from src.models.user import User
@@ -59,13 +60,25 @@ def create_role_only_job(
     db.refresh(new_job)
     return new_job
 
+@router.post("/{job_id}/archive")
+def archive_job(
+    job_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    job.is_archived = True
+    db.commit()
+    return {"status": "archived"}
 
 @router.get("/", response_model=List[JobResponse])
 def list_jobs(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return db.query(Job).filter(Job.user_id == current_user.id).all()
+    return db.query(Job).filter(Job.user_id == current_user.id, Job.is_archived == False).all()
 
 
 @router.get("/{job_id}", response_model=JobResponse)
@@ -102,3 +115,30 @@ def extract_job_requirements(
         "job_id": job.id,
         "parsed_requirements": structured_data,
     }
+
+class JobUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+
+
+@router.patch("/{job_id}", response_model=JobResponse)
+def update_job(
+    job_id: uuid.UUID,
+    payload: JobUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    job = db.query(Job).filter(Job.id == job_id, Job.user_id == current_user.id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if payload.title is not None:
+        job.title = payload.title
+    if payload.description is not None:
+        job.description = payload.description
+        # Description changed — clear stale requirements so the user can re-extract
+        job.parsed_requirements = None
+
+    db.commit()
+    db.refresh(job)
+    return job

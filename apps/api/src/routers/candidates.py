@@ -18,6 +18,13 @@ from src.deps import get_current_user
 
 router = APIRouter(prefix="/candidates", tags=["candidates"])
 
+@router.get("/count/total")
+def get_candidate_count(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    count = db.query(Candidate).filter(Candidate.user_id == current_user.id).count()
+    return {"count": count}
 
 @router.post("/upload", response_model=CandidateResponse)
 async def upload_candidate(
@@ -197,3 +204,5 @@ async def upload_candidates_bulk(
             results.append({"filename": file.filename, "status": "failed", "reason": str(e)})
 
     return {"job_id": str(parsed_job_id), "results": results}
+
+

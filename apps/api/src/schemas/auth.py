@@ -26,6 +26,25 @@ class UserResponse(BaseModel):
     email: str
     account_type: str
     company_name: Optional[str] = None
+    full_name: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+
+class UpdateProfileRequest(BaseModel):
+    full_name: Optional[str] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str

@@ -1,4 +1,4 @@
-# ---- Secrets / environment files ----
+# ---- Secrets / env files ----
 .env
 .env.local
 .env.*.local
