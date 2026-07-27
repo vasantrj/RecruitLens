@@ -18,6 +18,7 @@ from src.models.match_score import MatchScore
 from src.models.portfolio_link import PortfolioLink
 from src.models.company_integration import CompanyIntegration
 from src.models.email_log import EmailLog
+from src.models.password_reset import PasswordResetToken
 
 
 # this is the Alembic Config object, which provides

@@ -1,5 +1,6 @@
 "use client";
 
+import { ScoreRing } from "@/components/score-ring";
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "next/navigation";
@@ -386,6 +387,9 @@ export default function CandidateDetailPage() {
             </FadeInItem>
           )}
         </FadeInStagger>
+        <p className="text-xs text-faint text-center mt-8">
+        Designed for transparency. Built with integrity. · Vasant Joshi · {new Date().getFullYear()}
+      </p>
       </main>
     </AuthGuard>
   );

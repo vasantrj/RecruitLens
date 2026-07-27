@@ -19,6 +19,9 @@ class Settings(BaseSettings):
 
     jwt_secret_key: str = "change-this-to-a-random-secret-in-production"
 
+    contact_email_address: str = ""
+    contact_email_app_password: str = ""
+
     class Config:
         env_file = ".env"
 

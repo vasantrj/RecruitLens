@@ -16,3 +16,4 @@ class User(Base):
     account_type = Column(String, nullable=False, default="personal")  # "personal" or "company"
     company_name = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    full_name = Column(String, nullable=True)

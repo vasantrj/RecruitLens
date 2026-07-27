@@ -15,6 +15,7 @@ import {
 } from "@/lib/api-client";
 import { AuthGuard } from "@/components/auth-guard";
 import { FadeInStagger, FadeInItem } from "@/components/motion";
+import { useToast } from "@/components/toast";
 
 type RankedCandidate = {
   candidate_id: string;
@@ -29,6 +30,7 @@ type RankedCandidate = {
 export default function BulkUploadPage() {
   const params = useParams();
   const jobId = params.id as string;
+  const { showToast } = useToast();
 
   const [files, setFiles] = useState<File[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
@@ -89,6 +91,7 @@ export default function BulkUploadPage() {
       setRanked(data);
       setPreviewed(false);
       setSendResult(null);
+      showToast(`${data.length} candidates scored successfully.`);
     },
   });
 
@@ -138,7 +141,13 @@ export default function BulkUploadPage() {
         rejected_body: rejectedBody,
       });
     },
-    onSuccess: (data) => setSendResult(data),
+    onSuccess: (data) => {
+      setSendResult(data);
+      const sentCount =
+        data.shortlisted.filter((r: any) => r.status === "sent").length +
+        data.rejected.filter((r: any) => r.status === "sent").length;
+      showToast(`${sentCount} emails sent successfully.`);
+    },
   });
 
   const getGmailConnectUrl = () => {

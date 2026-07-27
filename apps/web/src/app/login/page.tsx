@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { loginUser } from "@/lib/api-client";
+import { AuthBrandingPanel } from "@/components/auth-branding-panel";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -24,42 +25,55 @@ export default function LoginPage() {
   });
 
   return (
-    <main className="page">
-      <h1 className="h1 mb-6">Log in to RecruitLens</h1>
+    <div className="flex min-h-screen">
+      <AuthBrandingPanel />
 
-      <div className="card max-w-sm">
-        <input
-          type="email"
-          placeholder="Email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="input mb-3"
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="input mb-3"
-        />
+<div
+  className="w-full md:w-1/2 flex items-center justify-center p-8"
+  style={{ background: "#384646" }}
+>        <div className="w-full max-w-sm">
+  <h1 className="h1 mb-6" style={{ color: "#ffffff" }}>Log in to RecruitLensAI</h1>
+          <div className="card">
+            <input
+              type="email"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input mb-3"
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="input mb-3"
+            />
 
-        {error && <p className="text-sm status-danger mb-3">{error}</p>}
+            {error && <p className="text-sm status-danger mb-3">{error}</p>}
 
-        <button
-          onClick={() => loginMutation.mutate()}
-          disabled={!email || !password || loginMutation.isPending}
-          className="btn-primary w-full"
-        >
-          {loginMutation.isPending ? "Logging in..." : "Log In"}
-        </button>
+            <button
+              onClick={() => loginMutation.mutate()}
+              disabled={!email || !password || loginMutation.isPending}
+              className="btn-primary w-full"
+            >
+              {loginMutation.isPending ? "Logging in..." : "Log In"}
+            </button>
 
-        <p className="text-sm text-muted mt-4">
-          Don&apos;t have an account?{" "}
-          <a href="/register" className="link">
-            Register
-          </a>
-        </p>
+            <p className="text-sm text-muted mt-2">
+              <a href="/forgot-password" className="link">
+                Forgot password?
+              </a>
+            </p>
+
+            <p className="text-sm text-muted mt-4">
+              Don&apos;t have an account?{" "}
+              <a href="/register" className="link">
+                Register
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
-    </main>
+    </div>
   );
 }

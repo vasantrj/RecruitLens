@@ -17,10 +17,12 @@ class JobResponse(BaseModel):
     description: Optional[str] = None
     is_role_only: str
     parsed_requirements: Optional[str] = None
+    is_archived: Optional[bool] = False
     created_at: datetime
 
     class Config:
         from_attributes = True
-        
+
+
 class RoleOnlyJobCreate(BaseModel):
     role_title: str
